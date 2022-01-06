@@ -1,0 +1,137 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: miniature-succotash-gitea
+  labels:
+    app: miniature-succotash-gitea
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: miniature-succotash-gitea
+  template:
+    metadata:
+      labels:
+        app: miniature-succotash-gitea
+    spec:
+      containers:
+        - name: gitea
+          image: gitea/gitea:1.15
+          env:
+            - name: USER_UID
+              value: "1000"
+            - name: USER_GID
+              value: "1000"
+            - name: GITEA__database__DB_TYPE
+              value: "mysql"
+            - name: GITEA__database__HOST
+              value: "miniature-succotash-mysql:3306"
+            - name: GITEA__database__NAME
+              value: "gitea"
+            - name: GITEA__database__USER
+              value: "gitea"
+            - name: GITEA__database__PASSWD
+              value: "gitea"
+          livenessProbe:
+            tcpSocket:
+              port: 3000
+          ports:
+            - containerPort: 3000
+          readinessProbe:
+            tcpSocket:
+              port: 3000
+          volumeMounts:
+            - name: gitea
+              mountPath: /data
+      volumes:
+        - name: gitea
+          hostPath:
+            path: /mnt/gitea
+            type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: miniature-succotash-gitea
+spec:
+  selector:
+    app: miniature-succotash-gitea
+  ports:
+  - protocol: TCP
+    port: 3000
+    targetPort: 3000
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: miniature-succotash-gitea
+spec:
+  rules:
+  - http:
+      paths:
+      - pathType: Prefix
+        path: "/"
+        backend:
+          service:
+            name: miniature-succotash-gitea
+            port:
+              number: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: miniature-succotash-mysql
+  labels:
+    app: miniature-succotash-mysql
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: miniature-succotash-mysql
+  template:
+    metadata:
+      labels:
+        app: miniature-succotash-mysql
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.0
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: "gitea"
+            - name: MYSQL_USER
+              value: "gitea"
+            - name: MYSQL_PASSWORD
+              value: "gitea"
+            - name: MYSQL_DATABASE
+              value: "gitea"
+          livenessProbe:
+            tcpSocket:
+              port: 3306
+          ports:
+            - containerPort: 3306
+          readinessProbe:
+            tcpSocket:
+              port: 3306
+          volumeMounts:
+            - name: mysql
+              mountPath: /var/lib/mysql
+      volumes:
+        - name: mysql
+          hostPath:
+            path: /mnt/mysql
+            type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: miniature-succotash-mysql
+spec:
+  selector:
+    app: miniature-succotash-mysql
+  ports:
+  - protocol: TCP
+    port: 3306
+    targetPort: 3306
+
